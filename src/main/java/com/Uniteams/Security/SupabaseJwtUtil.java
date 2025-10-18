@@ -1,22 +1,65 @@
-package com.Uniteams.Security;
+/*package com.Uniteams.Security;
 
+import io.jsonwebtoken.*;
+import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import javax.crypto.SecretKey;
 
 @Component
 public class SupabaseJwtUtil {
 
-    // ✅ TEMPORAL: Sin @Value, sin validación compleja
+    @Value("${supabase.anonkey}")
+    private String jwtSecret;
+
+    private SecretKey getSigningKey() {
+        return Keys.hmacShaKeyFor(jwtSecret.getBytes());
+    }
+
     public boolean validateToken(String token) {
-        System.out.println("🔐 Validando token: " + token);
-        // Por ahora siempre devuelve true para pruebas
-        return token != null && !token.isEmpty();
+        try {
+            Jwts.parserBuilder()
+                    .setSigningKey(getSigningKey())
+                    .build()
+                    .parseClaimsJws(token);
+            System.out.println("✅ Token JWT válido");
+            return true;
+        } catch (ExpiredJwtException e) {
+            System.err.println("❌ Token expirado: " + e.getMessage());
+            return false;
+        } catch (MalformedJwtException e) {
+            System.err.println("❌ Token mal formado: " + e.getMessage());
+            return false;
+        } catch (Exception e) {
+            System.err.println("❌ Error validando token: " + e.getMessage());
+            return false;
+        }
     }
 
     public String getUserIdFromToken(String token) {
-        return "user-test-id";
+        try {
+            Claims claims = Jwts.parserBuilder()
+                    .setSigningKey(getSigningKey())
+                    .build()
+                    .parseClaimsJws(token)
+                    .getBody();
+
+            String userId = claims.getSubject();
+            System.out.println("🔑 User ID del token: " + userId);
+            return userId;
+
+        } catch (Exception e) {
+            System.err.println("❌ Error obteniendo user ID: " + e.getMessage());
+            throw new IllegalArgumentException("Token inválido");
+        }
     }
 
     public String getEmailFromToken(String token) {
-        return "test@uniteams.com";
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(getSigningKey())
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+        return claims.get("email", String.class);
     }
-}
+}*/

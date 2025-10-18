@@ -9,6 +9,7 @@ public class AuthController {
 
     private final SupabaseJwtUtil jwtUtil;
 
+    // ✅ CORREGIDO: Solo recibe jwtUtil
     public AuthController(SupabaseJwtUtil jwtUtil) {
         this.jwtUtil = jwtUtil;
     }
@@ -16,15 +17,15 @@ public class AuthController {
     @PostMapping("/validate")
     public String validateToken(@RequestHeader("Authorization") String authHeader) {
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            return "Token inválido";
+            return "Token inválido - formato incorrecto";
         }
 
         String token = authHeader.substring(7);
         if (jwtUtil.validateToken(token)) {
             String userId = jwtUtil.getUserIdFromToken(token);
-            return "Token válido para usuario: " + userId;
+            return "✅ Token válido para usuario: " + userId;
         } else {
-            return "Token inválido";
+            return "❌ Token inválido";
         }
     }
 }

@@ -1,61 +1,26 @@
 package com.Uniteams.Entity;
 
-import jakarta.persistence.*;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "studygroups")
+// ✅ QUITA todas las anotaciones JPA
 public class Studygroups {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    @Column(name = "code", unique = true, nullable = false, length = 8)
     private String code;
-
-    @Column(name = "join_link", length = 500)
     private String joinLink;
-
-    @Column(name = "name", nullable = false)
     private String name;
-
-    @Column(name = "subject", nullable = false, length = 100)
     private String subject;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "session_type", nullable = false, length = 20)
     private SessionType sessionType;
-
-    @Column(name = "meeting_date", nullable = false)
     private LocalDate meetingDate;
-
-    @Column(name = "meeting_time", nullable = false)
     private LocalTime meetingTime;
-
-    @Column(name = "description", columnDefinition = "TEXT")
     private String description;
-
-    @Column(name = "max_participants", nullable = false)
     private Integer maxParticipants = 10;
-
-    @Column(name = "current_participants", nullable = false)
     private Integer currentParticipants = 0;
-
-    @Column(name = "is_private", nullable = false)
     private Boolean isPrivate = false;
-
-    @Column(name = "tutor_name", length = 100)
     private String tutorName;
-
-    @Column(name = "created_by", nullable = false)
-    private String createdBy; // UUID del usuario
-
-    @Column(name = "created_at", updatable = false)
+    private String createdBy;
     private LocalDateTime createdAt;
-
-    @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
     // Enums
@@ -69,7 +34,7 @@ public class Studygroups {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getters y Setters (omitiendo por brevedad, pero necesarios)
+    // Getters y Setters (MANTÉN TODOS)
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -118,8 +83,8 @@ public class Studygroups {
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 
-    @PreUpdate
-    public void setUpdatedAt() {
+    // ✅ QUITA @PreUpdate - no funciona sin JPA
+    public void updateTimestamp() {
         this.updatedAt = LocalDateTime.now();
     }
 }

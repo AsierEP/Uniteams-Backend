@@ -1,5 +1,6 @@
-package com.Uniteams.Repository;
+/*package com.Uniteams.Repository;
 
+<<<<<<< HEAD
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -11,18 +12,33 @@ import org.springframework.stereotype.Repository;
 
 import com.Uniteams.Entity.Studygroups;
 
+=======
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Repository;
+
+>>>>>>> master
 @Repository
-public interface StudygroupsRepo extends JpaRepository<Studygroups, Long> {
+public class StudygroupsRepo {
 
-    // Encontrar por código
-    Optional<Studygroups> findByCode(String code);
+    private final JdbcTemplate jdbcTemplate;
 
-    // Encontrar grupos públicos
-    List<Studygroups> findByIsPrivateFalse();
+    public StudygroupsRepo(JdbcTemplate jdbcTemplate) {
+        this.jdbcTemplate = jdbcTemplate;
+        System.out.println("✅ StudygroupsRepo inicializado");
+    }
 
-    // Encontrar grupos por materia
-    List<Studygroups> findBySubjectAndIsPrivateFalse(String subject);
+    // ✅ MÉTODO MÍNIMO DE PRUEBA
+    public String testConnection() {
+        try {
+            String sql = "SELECT version()";
+            String result = jdbcTemplate.queryForObject(sql, String.class);
+            return "✅ Conexión BD exitosa: " + result;
+        } catch (Exception e) {
+            return "❌ Error en conexión BD: " + e.getMessage();
+        }
+    }
 
+<<<<<<< HEAD
     // Encontrar grupos por tipo de sesión
     List<Studygroups> findBySessionTypeAndIsPrivateFalse(Studygroups.SessionType sessionType);
 
@@ -39,3 +55,17 @@ public interface StudygroupsRepo extends JpaRepository<Studygroups, Long> {
     // Encontrar grupos de un usuario
     List<Studygroups> findByCreatedBy(String createdBy);
 }
+=======
+    // ✅ MÉTODO MÍNIMO DE PRUEBA
+    public int countGroups() {
+        try {
+            String sql = "SELECT COUNT(*) FROM studygroups";
+            Integer count = jdbcTemplate.queryForObject(sql, Integer.class);
+            return count != null ? count : 0;
+        } catch (Exception e) {
+            System.err.println("❌ Error contando grupos: " + e.getMessage());
+            return -1;
+        }
+    }
+}*/
+>>>>>>> master

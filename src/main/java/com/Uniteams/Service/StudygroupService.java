@@ -1,94 +1,75 @@
 package com.Uniteams.Service;
 
-import com.Uniteams.DTO.StudygroupsDTO;
-import com.Uniteams.Entity.Studygroups;
-import com.Uniteams.Repository.StudygroupsRepo;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
-
-import java.util.List;
-import java.util.Optional;
+import org.springframework.web.client.RestTemplate;
+import java.util.*;
 
 @Service
 public class StudygroupService {
 
-    @Autowired
-    private StudygroupsRepo Studygroupsrepo;
+    private final SupabaseApiService supabaseApiService;
 
-    public Studygroups createStudyGroup(StudygroupsDTO request, String userId) {
-        // Validaciones
-        if (request.getMaxParticipants() < 8) {
-            throw new IllegalArgumentException("El número mínimo de participantes es 8");
-        }
-
-        if (request.getMeetingDate().isBefore(java.time.LocalDate.now())) {
-            throw new IllegalArgumentException("La fecha no puede ser en el pasado");
-        }
-
-        Studygroups studyGroup = new Studygroups();
-        studyGroup.setName(request.getName());
-        studyGroup.setSubject(request.getSubject());
-        studyGroup.setSessionType(request.getSessionType());
-        studyGroup.setMeetingDate(request.getMeetingDate());
-        studyGroup.setMeetingTime(request.getMeetingTime());
-        studyGroup.setDescription(request.getDescription());
-        studyGroup.setMaxParticipants(request.getMaxParticipants());
-        studyGroup.setIsPrivate(request.getIsPrivate() != null ? request.getIsPrivate() : false);
-        studyGroup.setTutorName(request.getTutorName());
-        studyGroup.setJoinLink(request.getJoinLink());
-        studyGroup.setCreatedBy(userId);
-        studyGroup.setCurrentParticipants(1); // El creador es el primer participante
-
-        return Studygroupsrepo.save(studyGroup);
+    public StudygroupService(SupabaseApiService supabaseApiService) {
+        this.supabaseApiService = supabaseApiService;
     }
 
-    public List<Studygroups> getPublicStudyGroups() {
-        return Studygroupsrepo.findByIsPrivateFalse();
+    // Obtener todos los grupos públicos
+    public List<Map<String, Object>> getPublicStudyGroups() {
+        List<Map<String, Object>> allGroups = supabaseApiService.getStudyGroups();
+        return allGroups.stream()
+                .filter(group -> !Boolean.TRUE.equals(group.get("is_private")))
+                .toList();
     }
 
-    public List<Studygroups> searchPublicGroups(String searchTerm) {
+    // Buscar grupos públicos
+    public List<Map<String, Object>> searchPublicGroups(String searchTerm) {
+        List<Map<String, Object>> publicGroups = getPublicStudyGroups();
+
         if (searchTerm == null || searchTerm.trim().isEmpty()) {
-            return Studygroupsrepo.findByIsPrivateFalse();
+            return publicGroups;
         }
-        return Studygroupsrepo.searchPublicGroups(searchTerm.trim());
+
+        String searchLower = searchTerm.toLowerCase();
+        return publicGroups.stream()
+                .filter(group ->
+                        group.get("name") != null && group.get("name").toString().toLowerCase().contains(searchLower) ||
+                                group.get("description") != null && group.get("description").toString().toLowerCase().contains(searchLower) ||
+                                group.get("tutor_name") != null && group.get("tutor_name").toString().toLowerCase().contains(searchLower)
+                )
+                .toList();
     }
 
-    public List<Studygroups> getStudyGroupsBySubject(String subject) {
-        return Studygroupsrepo.findBySubjectAndIsPrivateFalse(subject);
+    // Obtener grupos por materia
+    public List<Map<String, Object>> getGroupsBySubject(String subject) {
+        List<Map<String, Object>> publicGroups = getPublicStudyGroups();
+        return publicGroups.stream()
+                .filter(group -> subject.equalsIgnoreCase(group.get("subject").toString()))
+                .toList();
     }
 
-    public List<Studygroups> getStudyGroupsBySessionType(Studygroups.SessionType sessionType) {
-        return Studygroupsrepo.findBySessionTypeAndIsPrivateFalse(sessionType);
+    // Crear nuevo grupo
+    public Map<String, Object> createStudyGroup(Map<String, Object> groupData, String userId) {
+        // Agregar campos automáticos
+        groupData.put("created_by", userId);
+        groupData.put("created_at", new Date().toString());
+        groupData.put("current_participants", 1);
+
+        // Generar código único
+        groupData.put("code", generateUniqueCode());
+
+        return supabaseApiService.createStudyGroup(groupData);
     }
 
-    public Optional<Studygroups> getStudyGroupByCode(String code) {
-        return Studygroupsrepo.findByCode(code);
+    // Obtener grupos del usuario
+    public List<Map<String, Object>> getUserStudyGroups(String userId) {
+        List<Map<String, Object>> allGroups = supabaseApiService.getStudyGroups();
+        return allGroups.stream()
+                .filter(group -> userId.equals(group.get("created_by")))
+                .toList();
     }
 
-    public List<Studygroups> getUserStudyGroups(String userId) {
-        return Studygroupsrepo.findByCreatedBy(userId);
-    }
-
-    public boolean joinStudyGroup(Long groupId, String userId) {
-        Optional<Studygroups> groupOpt = Studygroupsrepo.findById(groupId);
-        if (groupOpt.isPresent()) {
-            Studygroups group = groupOpt.get();
-
-            // Verificar si hay cupo disponible
-            if (group.getCurrentParticipants() >= group.getMaxParticipants()) {
-                throw new IllegalStateException("El grupo está lleno");
-            }
-
-            // Verificar si es privado (aquí podrías agregar lógica de invitaciones)
-            if (group.getIsPrivate()) {
-                throw new IllegalStateException("Este grupo es privado, necesitas una invitación");
-            }
-
-            // Incrementar participantes (en una app real, guardarías en una tabla de participantes)
-            group.setCurrentParticipants(group.getCurrentParticipants() + 1);
-            Studygroupsrepo.save(group);
-            return true;
-        }
-        return false;
+    private String generateUniqueCode() {
+        return UUID.randomUUID().toString().substring(0, 8).toUpperCase();
     }
 }

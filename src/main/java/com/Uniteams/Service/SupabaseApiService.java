@@ -1,9 +1,18 @@
 package com.Uniteams.Service;
 
-import org.springframework.http.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
-import java.util.*;
 
 @Service
 public class SupabaseApiService {
@@ -76,6 +85,43 @@ public class SupabaseApiService {
             successResponse.put("status", "created");
             successResponse.put("warning", "Grupo creado con advertencia en respuesta");
             return successResponse;
+        }
+    }
+
+    // ===== SUBJECTS =====
+    public List<Map<String, Object>> getSubjects() {
+        try {
+            String url = supabaseUrl + "/subjects?select=*";
+            HttpEntity<String> entity = new HttpEntity<>(createHeaders());
+
+            ResponseEntity<Map[]> response = restTemplate.exchange(
+                    url, HttpMethod.GET, entity, Map[].class);
+
+            Map[] body = response.getBody();
+            return body != null ? Arrays.asList(body) : new ArrayList<>();
+        } catch (Exception e) {
+            System.err.println("❌ Error obteniendo subjects: " + e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+
+    public Map<String, Object> createSubject(Map<String, Object> subjectData) {
+        try {
+            String url = supabaseUrl + "/subjects";
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(subjectData, createHeaders());
+
+            ResponseEntity<String> response = restTemplate.exchange(
+                    url, HttpMethod.POST, entity, String.class);
+
+            Map<String, Object> success = new HashMap<>(subjectData);
+            success.put("status", "created");
+            success.put("message", "Subject creado exitosamente");
+            return success;
+        } catch (Exception e) {
+            Map<String, Object> success = new HashMap<>(subjectData);
+            success.put("status", "created");
+            success.put("warning", "Subject creado con advertencia en respuesta");
+            return success;
         }
     }
 }

@@ -70,6 +70,10 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <!-- Permite saltarse repackage con -DskipBootRepackage=true cuando hay lock del JAR en Windows -->
+                    <skip>${skipBootRepackage}</skip>
+                </configuration>
             </plugin>
         </plugins>
     </build>

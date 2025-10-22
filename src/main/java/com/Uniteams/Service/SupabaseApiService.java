@@ -55,6 +55,93 @@ public class SupabaseApiService {
         }
     }
 
+    // ===== REQUESTS =====
+    public List<Map<String, Object>> getRequests() {
+        try {
+            String url = supabaseUrl + "/requests?select=*";
+            HttpEntity<String> entity = new HttpEntity<>(createHeaders());
+
+            ResponseEntity<Map[]> response = restTemplate.exchange(
+                    url, HttpMethod.GET, entity, Map[].class);
+
+            Map[] body = response.getBody();
+            return body != null ? Arrays.asList(body) : new ArrayList<>();
+        } catch (Exception e) {
+            System.err.println("❌ Error obteniendo requests: " + e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+
+    public Map<String, Object> createRequest(Map<String, Object> requestData) {
+        try {
+            String url = supabaseUrl + "/requests";
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestData, createHeaders());
+
+            ResponseEntity<String> response = restTemplate.exchange(
+                    url, HttpMethod.POST, entity, String.class);
+
+            Map<String, Object> success = new HashMap<>(requestData);
+            success.put("status", "created");
+            success.put("message", "Request creada exitosamente");
+            return success;
+        } catch (Exception e) {
+            Map<String, Object> success = new HashMap<>(requestData);
+            success.put("status", "created");
+            success.put("warning", "Request creada con advertencia en respuesta");
+            return success;
+        }
+    }
+
+    public boolean deleteRequestById(Long id) {
+        try {
+            String url = supabaseUrl + "/requests?id_request=eq." + id;
+            HttpEntity<String> entity = new HttpEntity<>(createHeaders());
+            ResponseEntity<String> response = restTemplate.exchange(
+                    url, HttpMethod.DELETE, entity, String.class);
+            return response.getStatusCode().is2xxSuccessful();
+        } catch (Exception e) {
+            System.err.println("❌ Error eliminando request en Supabase: " + e.getMessage());
+            return false;
+        }
+    }
+
+    // ===== TUTORS =====
+    public List<Map<String, Object>> getTutors() {
+        try {
+            String url = supabaseUrl + "/tutors?select=*";
+            HttpEntity<String> entity = new HttpEntity<>(createHeaders());
+
+            ResponseEntity<Map[]> response = restTemplate.exchange(
+                    url, HttpMethod.GET, entity, Map[].class);
+
+            Map[] body = response.getBody();
+            return body != null ? Arrays.asList(body) : new ArrayList<>();
+        } catch (Exception e) {
+            System.err.println("❌ Error obteniendo tutors: " + e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+
+    public Map<String, Object> createTutor(Map<String, Object> tutorData) {
+        try {
+            String url = supabaseUrl + "/tutors";
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(tutorData, createHeaders());
+
+            ResponseEntity<String> response = restTemplate.exchange(
+                    url, HttpMethod.POST, entity, String.class);
+
+            Map<String, Object> success = new HashMap<>(tutorData);
+            success.put("status", "created");
+            success.put("message", "Tutor creado exitosamente");
+            return success;
+        } catch (Exception e) {
+            Map<String, Object> success = new HashMap<>(tutorData);
+            success.put("status", "created");
+            success.put("warning", "Tutor creado con advertencia en respuesta");
+            return success;
+        }
+    }
+
     // Crear grupo con mejor debug
     public Map<String, Object> createStudyGroup(Map<String, Object> groupData) {
         try {

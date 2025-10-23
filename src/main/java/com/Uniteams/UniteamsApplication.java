@@ -14,4 +14,5 @@ public class UniteamsApplication {
         SpringApplication.run(UniteamsApplication.class, args);
         System.out.println("🚀 Uniteams Backend ejecutándose en http://localhost:8080");
     }
+
 }

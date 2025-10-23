@@ -50,7 +50,7 @@ public class StudygroupController {
         }
     }
 
-    // Crear nuevo grupo de estudio - ACTUALIZADO
+    // Crear nuevo grupo de estudio
     @PostMapping
     public ResponseEntity<?> createStudyGroup(
             @RequestBody Map<String, Object> request,
@@ -104,15 +104,61 @@ public class StudygroupController {
         }
     }
 
-    // Obtener grupos del usuario actual
-    @GetMapping("/my-groups")
-    public ResponseEntity<List<Map<String, Object>>> getUserStudyGroups(@RequestHeader("Authorization") String authHeader) {
+    // ✅ CORREGIDO: Unirse a un grupo
+    @PostMapping("/{code}/join")
+    public ResponseEntity<?> joinStudyGroup(
+            @PathVariable String code,
+            @RequestHeader("Authorization") String authHeader) {
         try {
             String userId = validateTokenAndGetUserId(authHeader);
-            List<Map<String, Object>> groups = studygroupService.getUserStudyGroups(userId);
-            return ResponseEntity.ok(groups);
+            Map<String, Object> result = studygroupService.joinStudyGroup(code, userId);
+
+            if (result.containsKey("error")) {
+                return ResponseEntity.badRequest().body(result);
+            }
+
+            return ResponseEntity.ok(result);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
-            return ResponseEntity.internalServerError().build();
+            return ResponseEntity.internalServerError().body(Map.of("error", "Error al unirse al grupo: " + e.getMessage()));
+        }
+    }
+
+    // ✅ CORREGIDO: Salir de un grupo
+    @PostMapping("/{code}/leave")
+    public ResponseEntity<?> leaveStudyGroup(
+            @PathVariable String code,
+            @RequestHeader("Authorization") String authHeader) {
+        try {
+            String userId = validateTokenAndGetUserId(authHeader);
+            Map<String, Object> result = studygroupService.leaveStudyGroup(code, userId);
+
+            if (result.containsKey("error")) {
+                return ResponseEntity.badRequest().body(result);
+            }
+
+            return ResponseEntity.ok(result);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of("error", "Error al salir del grupo: " + e.getMessage()));
+        }
+    }
+
+    // ✅ CORREGIDO: Obtener grupos del usuario actual (con detalles completos)
+    @GetMapping("/my-groups")
+    public ResponseEntity<?> getUserStudyGroups(@RequestHeader("Authorization") String authHeader) {
+        try {
+            String userId = validateTokenAndGetUserId(authHeader);
+            List<Map<String, Object>> groups = studygroupService.getUserStudyGroupsWithDetails(userId);
+            return ResponseEntity.ok(groups);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            System.err.println("❌ Error obteniendo grupos del usuario: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().body(Map.of("error", "Error al cargar tus grupos"));
         }
     }
 
@@ -154,6 +200,31 @@ public class StudygroupController {
         } catch (Exception e) {
             System.err.println("❌ Error extrayendo user ID: " + e.getMessage());
             throw new IllegalArgumentException("No se pudo extraer user ID del token: " + e.getMessage());
+        }
+    }
+
+    // ✅ NUEVO: Obtener materias disponibles
+    @GetMapping("/subjects")
+    public ResponseEntity<List<String>> getAvailableSubjects() {
+        try {
+            List<String> subjects = studygroupService.getAvailableSubjects();
+            return ResponseEntity.ok(subjects);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    // ✅ NUEVO: Obtener grupo por código
+    @GetMapping("/code/{code}")
+    public ResponseEntity<?> getStudyGroupByCode(@PathVariable String code) {
+        try {
+            Map<String, Object> group = studygroupService.getStudyGroupByCode(code);
+            if (group == null) {
+                return ResponseEntity.notFound().build();
+            }
+            return ResponseEntity.ok(group);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
         }
     }
 }

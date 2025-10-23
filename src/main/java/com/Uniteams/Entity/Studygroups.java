@@ -12,7 +12,8 @@ public class Studygroups {
     private String name;
     private String subject;
     private SessionType sessionType;
-    private LocalDate meetingDate;
+    private LocalDate meetingDate;    // Para exámenes (fecha específica)
+    private String meetingDay;        // ✅ NUEVO: Para seguimiento (día de la semana)
     private LocalTime meetingTime;
     private String description;
     private Integer maxParticipants = 10;
@@ -34,7 +35,7 @@ public class Studygroups {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getters y Setters (MANTÉN TODOS)
+    // Getters y Setters (MANTÉN TODOS Y AGREGA meetingDay)
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -55,6 +56,10 @@ public class Studygroups {
 
     public LocalDate getMeetingDate() { return meetingDate; }
     public void setMeetingDate(LocalDate meetingDate) { this.meetingDate = meetingDate; }
+
+    // ✅ NUEVO: Getter y Setter para meetingDay
+    public String getMeetingDay() { return meetingDay; }
+    public void setMeetingDay(String meetingDay) { this.meetingDay = meetingDay; }
 
     public LocalTime getMeetingTime() { return meetingTime; }
     public void setMeetingTime(LocalTime meetingTime) { this.meetingTime = meetingTime; }
@@ -86,5 +91,48 @@ public class Studygroups {
     // ✅ QUITA @PreUpdate - no funciona sin JPA
     public void updateTimestamp() {
         this.updatedAt = LocalDateTime.now();
+    }
+
+    // ✅ MÉTODOS DE UTILIDAD AGREGADOS
+    public boolean isValidForSessionType() {
+        if (sessionType == SessionType.examen) {
+            return meetingDate != null && meetingTime != null;
+        } else if (sessionType == SessionType.seguimiento) {
+            return meetingDay != null && !meetingDay.trim().isEmpty() && meetingTime != null;
+        }
+        return false;
+    }
+
+    public String getScheduleDescription() {
+        if (sessionType == SessionType.examen) {
+            return meetingDate != null ?
+                    "Examen el " + meetingDate.toString() + " a las " + meetingTime.toString() :
+                    "Fecha de examen por definir";
+        } else if (sessionType == SessionType.seguimiento) {
+            return meetingDay != null ?
+                    "Todos los " + meetingDay + " a las " + meetingTime.toString() :
+                    "Día por definir";
+        }
+        return "Horario no definido";
+    }
+
+    // ✅ MÉTODO PARA CONVERTIR A MAP (útil para Supabase)
+    public java.util.Map<String, Object> toMap() {
+        java.util.Map<String, Object> map = new java.util.HashMap<>();
+        map.put("code", code);
+        map.put("name", name);
+        map.put("subject", subject);
+        map.put("session_type", sessionType != null ? sessionType.name() : null);
+        map.put("meeting_date", meetingDate);
+        map.put("meeting_day", meetingDay);  // ✅ NUEVO
+        map.put("meeting_time", meetingTime);
+        map.put("description", description);
+        map.put("max_participants", maxParticipants);
+        map.put("current_participants", currentParticipants);
+        map.put("is_private", isPrivate);
+        map.put("tutor_name", tutorName);
+        map.put("join_link", joinLink);
+        map.put("created_by", createdBy);
+        return map;
     }
 }

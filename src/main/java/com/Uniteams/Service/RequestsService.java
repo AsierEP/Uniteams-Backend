@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
 import org.springframework.stereotype.Service;
 
 @Service
@@ -20,6 +19,7 @@ public class RequestsService {
     public Map<String, Object> createRequest(Map<String, Object> requestData) {
         Map<String, Object> supabaseData = new HashMap<>();
 
+        // (Tu mapeo está bien)
         if (requestData.containsKey("idRequest")) {
             supabaseData.put("id_request", requestData.get("idRequest"));
         }
@@ -57,6 +57,8 @@ public class RequestsService {
     }
 
     // Buscar requests por texto (carreer_name o description)
+    // ADVERTENCIA: Esto sigue siendo ineficiente.
+    // Una mejor solución usaría un filtro 'like' en SupabaseApiService.
     public List<Map<String, Object>> searchRequests(String searchTerm) {
         try {
             List<Map<String, Object>> all = getRequests();
@@ -67,7 +69,7 @@ public class RequestsService {
             return all.stream()
                     .filter(row ->
                             (row.get("carreer_name") != null && row.get("carreer_name").toString().toLowerCase().contains(s)) ||
-                            (row.get("description") != null && row.get("description").toString().toLowerCase().contains(s))
+                                    (row.get("description") != null && row.get("description").toString().toLowerCase().contains(s))
                     )
                     .toList();
         } catch (Exception e) {
@@ -76,46 +78,40 @@ public class RequestsService {
         }
     }
 
-    // Obtener requests por usuario
+    // ✅ CORREGIDO: Obtener requests por usuario (versión eficiente)
     public List<Map<String, Object>> getRequestsByUser(String userId) {
         try {
             if (userId == null || userId.trim().isEmpty()) return new ArrayList<>();
-            List<Map<String, Object>> all = getRequests();
-            return all.stream()
-                    .filter(r -> r.get("id_user") != null && userId.equals(r.get("id_user").toString()))
-                    .toList();
+
+            // Llama al nuevo método que filtra en la base de datos
+            return supabaseApiService.getRequestsByUserId(userId);
+
         } catch (Exception e) {
             System.err.println("❌ Error obteniendo requests por usuario: " + e.getMessage());
             return new ArrayList<>();
         }
     }
 
-    // Obtener requests por materia
+    // ✅ CORREGIDO: Obtener requests por materia (versión eficiente)
     public List<Map<String, Object>> getRequestsBySubject(Long idSubject) {
         try {
             if (idSubject == null) return new ArrayList<>();
-            List<Map<String, Object>> all = getRequests();
-            return all.stream()
-                    .filter(r -> {
-                        Object val = r.get("id_subject");
-                        if (val == null) return false;
-                        try {
-                            return Long.parseLong(val.toString()) == idSubject;
-                        } catch (NumberFormatException nfe) {
-                            return false;
-                        }
-                    })
-                    .toList();
+
+            // Llama al nuevo método que filtra en la base de datos
+            return supabaseApiService.getRequestsBySubjectId(idSubject);
+
         } catch (Exception e) {
             System.err.println("❌ Error obteniendo requests por materia: " + e.getMessage());
             return new ArrayList<>();
         }
     }
 
-    // Eliminar request por id_request
+    // ✅ CORREGIDO: Eliminar request por id_request
     public Map<String, Object> deleteRequest(Long id) {
         try {
-            boolean deleted = supabaseApiService.deleteRequestById(id);
+            // CORRECCIÓN: Convertir el Long a String antes de pasarlo a la API
+            boolean deleted = supabaseApiService.deleteRequestById(id.toString());
+
             if (deleted) {
                 return Map.of(
                         "status", "deleted",

@@ -234,4 +234,249 @@ public class SupabaseApiService {
             return new ArrayList<>();
         }
     }
+
+    public Map<String, Object> createSubject(Map<String, Object> subjectData) {
+        try {
+            // ASUME que tu tabla en Supabase se llama 'subjects' (en plural)
+            String url = supabaseUrl + "/subjects?select=*"; // <-- CAMBIO DE TABLA
+
+            HttpHeaders headers = createHeaders();
+            headers.set("Prefer", "return=representation,resolution=merge-duplicates");
+
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(subjectData, headers);
+
+            System.out.println("🚀 Creando nueva materia en Supabase...");
+
+            // Pedimos un Map[] porque Supabase devuelve un array con el objeto creado
+            ResponseEntity<Map[]> response = restTemplate.exchange(
+                    url, HttpMethod.POST, entity, Map[].class);
+
+            // Si Supabase devuelve un cuerpo y un array no vacío, la creación fue exitosa
+            if (response.getBody() != null && response.getBody().length > 0) {
+                System.out.println("✅ Materia creada exitosamente.");
+                // Devolvemos el primer objeto del array, que es nuestro grupo con su ID
+                return response.getBody()[0];
+            }
+
+            // Si no, devolvemos un error
+            System.err.println("❌ Supabase devolvió OK pero sin cuerpo de respuesta.");
+            return Map.of("error", "Supabase devolvió OK pero sin cuerpo de respuesta.");
+
+        } catch (org.springframework.web.client.HttpClientErrorException e) {
+            // ✅ ESTE ES EL CATCH MÁS IMPORTANTE
+            // Captura errores 4xx y 5xx y muestra el error REAL de Supabase
+            System.err.println("❌ Error REAL de Supabase al crear materia: " + e.getResponseBodyAsString());
+            return Map.of("error", "Error de Supabase: " + e.getResponseBodyAsString());
+
+        } catch (Exception e) {
+            // Captura genérica para otros errores (red, etc.)
+            System.err.println("❌ Error creando materia: " + e.getMessage());
+            e.printStackTrace();
+            return Map.of("error", e.getMessage());
+        }
+    }
+
+    public List<Map<String, Object>> getSubjects() {
+        try {
+            // ASUME que tu tabla en Supabase se llama 'subjects' (en plural)
+            String url = supabaseUrl + "/subjects?select=*"; // <-- CAMBIO DE TABLA
+            HttpEntity<String> entity = new HttpEntity<>(createHeaders());
+
+            ResponseEntity<Map[]> response = restTemplate.exchange(
+                    url, HttpMethod.GET, entity, Map[].class);
+
+            // Devuelve la lista de materias
+            return Arrays.asList(response.getBody());
+
+        } catch (Exception e) {
+            System.err.println("❌ Error obteniendo materias: " + e.getMessage());
+            e.printStackTrace();
+            return new ArrayList<>();
+        }
+    }
+    public List<Map<String, Object>> getRequests() {
+        try {
+            // ASUME que tu tabla en Supabase se llama 'requests'
+            String url = supabaseUrl + "/requests?select=*";
+            HttpEntity<String> entity = new HttpEntity<>(createHeaders());
+
+            ResponseEntity<Map[]> response = restTemplate.exchange(
+                    url, HttpMethod.GET, entity, Map[].class);
+
+            // Devuelve la lista de requests
+            return Arrays.asList(response.getBody());
+
+        } catch (Exception e) {
+            System.err.println("❌ Error obteniendo requests: " + e.getMessage());
+            e.printStackTrace();
+            return new ArrayList<>();
+        }
+    }
+
+    public Map<String, Object> createRequest(Map<String, Object> requestData) {
+        try {
+            // ASUME que tu tabla en Supabase se llama 'requests'
+            String url = supabaseUrl + "/requests?select=*";
+
+            HttpHeaders headers = createHeaders();
+            headers.set("Prefer", "return=representation,resolution=merge-duplicates");
+
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestData, headers);
+
+            System.out.println("🚀 Creando nueva request en Supabase...");
+
+            // Pedimos un Map[] porque Supabase devuelve un array con el objeto creado
+            ResponseEntity<Map[]> response = restTemplate.exchange(
+                    url, HttpMethod.POST, entity, Map[].class);
+
+            // Si Supabase devuelve un cuerpo y un array no vacío, la creación fue exitosa
+            if (response.getBody() != null && response.getBody().length > 0) {
+                System.out.println("✅ Request creada exitosamente.");
+                // Devolvemos el primer objeto del array, que es nuestro grupo con su ID
+                return response.getBody()[0];
+            }
+
+            // Si no, devolvemos un error
+            System.err.println("❌ Supabase devolvió OK pero sin cuerpo de respuesta.");
+            return Map.of("error", "Supabase devolvió OK pero sin cuerpo de respuesta.");
+
+        } catch (org.springframework.web.client.HttpClientErrorException e) {
+            // ✅ ESTE ES EL CATCH MÁS IMPORTANTE
+            // Captura errores 4xx y 5xx y muestra el error REAL de Supabase
+            System.err.println("❌ Error REAL de Supabase al crear request: " + e.getResponseBodyAsString());
+            return Map.of("error", "Error de Supabase: " + e.getResponseBodyAsString());
+
+        } catch (Exception e) {
+            // Captura genérica para otros errores (red, etc.)
+            System.err.println("❌ Error creando request: " + e.getMessage());
+            e.printStackTrace();
+            return Map.of("error", e.getMessage());
+        }
+    }
+    public boolean deleteRequestById(String requestId) {
+        try {
+            // ASUME que tu tabla en Supabase se llama 'requests'
+            String url = supabaseUrl + "/requests?id=eq." + requestId;
+
+            HttpHeaders headers = createHeaders();
+            // Para DELETE, 'minimal' es más eficiente que 'representation'
+            headers.set("Prefer", "return=minimal");
+
+            HttpEntity<String> entity = new HttpEntity<>(headers);
+
+            System.out.println("🚀 Eliminando request de Supabase: " + requestId);
+
+            // Ejecutamos la llamada DELETE
+            ResponseEntity<String> response = restTemplate.exchange(
+                    url, HttpMethod.DELETE, entity, String.class);
+
+            // Si el código es 2xx (ej. 200 OK, 204 No Content), no lanzará excepción
+            System.out.println("✅ Request eliminada exitosamente.");
+            return true;
+
+        } catch (org.springframework.web.client.HttpClientErrorException e) {
+            // Captura errores 4xx (ej. 404 Not Found, 403 RLS policy)
+            System.err.println("❌ Error REAL de Supabase al eliminar request: " + e.getResponseBodyAsString());
+            return false;
+
+        } catch (Exception e) {
+            // Captura genérica para otros errores (red, etc.)
+            System.err.println("❌ Error eliminando request: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    // ✅ NUEVO: Obtener requests por ID de usuario
+    public List<Map<String, Object>> getRequestsByUserId(String userId) {
+        try {
+            // Filtra en la base de datos con ?id_user=eq.USER_ID
+            String url = supabaseUrl + "/requests?id_user=eq." + userId + "&select=*";
+            HttpEntity<String> entity = new HttpEntity<>(createHeaders());
+
+            ResponseEntity<Map[]> response = restTemplate.exchange(
+                    url, HttpMethod.GET, entity, Map[].class);
+
+            return Arrays.asList(response.getBody());
+        } catch (Exception e) {
+            System.err.println("❌ Error obteniendo requests por usuario: " + e.getMessage());
+            e.printStackTrace();
+            return new ArrayList<>();
+        }
+    }
+
+    // ✅ NUEVO: Obtener requests por ID de materia
+    public List<Map<String, Object>> getRequestsBySubjectId(Long idSubject) {
+        try {
+            // Filtra en la base de datos con ?id_subject=eq.SUBJECT_ID
+            String url = supabaseUrl + "/requests?id_subject=eq." + idSubject + "&select=*";
+            HttpEntity<String> entity = new HttpEntity<>(createHeaders());
+
+            ResponseEntity<Map[]> response = restTemplate.exchange(
+                    url, HttpMethod.GET, entity, Map[].class);
+
+            return Arrays.asList(response.getBody());
+        } catch (Exception e) {
+            System.err.println("❌ Error obteniendo requests por materia: " + e.getMessage());
+            e.printStackTrace();
+            return new ArrayList<>();
+        }
+    }
+    public List<Map<String, Object>> getTutors() {
+        try {
+            // ASUME que tu tabla en Supabase se llama 'tutors'
+            String url = supabaseUrl + "/tutors?select=*";
+            HttpEntity<String> entity = new HttpEntity<>(createHeaders());
+
+            ResponseEntity<Map[]> response = restTemplate.exchange(
+                    url, HttpMethod.GET, entity, Map[].class);
+
+            // Devuelve la lista de tutores
+            return Arrays.asList(response.getBody());
+
+        } catch (Exception e) {
+            System.err.println("❌ Error obteniendo tutores: " + e.getMessage());
+            e.printStackTrace();
+            return new ArrayList<>();
+        }
+    }
+    public Map<String, Object> createTutor(Map<String, Object> tutorData) {
+        try {
+            // ASUME que tu tabla en Supabase se llama 'tutors'
+            String url = supabaseUrl + "/tutors?select=*";
+
+            HttpHeaders headers = createHeaders();
+            headers.set("Prefer", "return=representation,resolution=merge-duplicates");
+
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(tutorData, headers);
+
+            System.out.println("🚀 Creando nuevo tutor en Supabase...");
+
+            // Pedimos un Map[] porque Supabase devuelve un array con el objeto creado
+            ResponseEntity<Map[]> response = restTemplate.exchange(
+                    url, HttpMethod.POST, entity, Map[].class);
+
+            // Si Supabase devuelve un cuerpo y un array no vacío, la creación fue exitosa
+            if (response.getBody() != null && response.getBody().length > 0) {
+                System.out.println("✅ Tutor creado exitosamente.");
+                // Devolvemos el primer objeto del array
+                return response.getBody()[0];
+            }
+
+            // Si no, devolvemos un error
+            System.err.println("❌ Supabase devolvió OK pero sin cuerpo de respuesta.");
+            return Map.of("error", "Supabase devolvió OK pero sin cuerpo de respuesta.");
+
+        } catch (org.springframework.web.client.HttpClientErrorException e) {
+            // Captura errores 4xx y 5xx y muestra el error REAL de Supabase
+            System.err.println("❌ Error REAL de Supabase al crear tutor: " + e.getResponseBodyAsString());
+            return Map.of("error", "Error de Supabase: " + e.getResponseBodyAsString());
+
+        } catch (Exception e) {
+            // Captura genérica para otros errores (red, etc.)
+            System.err.println("❌ Error creando tutor: " + e.getMessage());
+            e.printStackTrace();
+            return Map.of("error", e.getMessage());
+        }
+    }
 }

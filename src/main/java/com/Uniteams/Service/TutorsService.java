@@ -82,4 +82,61 @@ public class TutorsService {
             return new ArrayList<>();
         }
     }
+
+    // ✅ NUEVO: Crear tutor desde una request y actualizar estado a ACEPTADO
+    public Map<String, Object> createTutorFromRequest(Long idRequest) {
+        try {
+            if (idRequest == null) {
+                return Map.of("error", "El id_request es obligatorio");
+            }
+
+            // 1) Obtener la request
+            Map<String, Object> req = supabaseApiService.getRequestById(idRequest.toString());
+            if (req == null) {
+                return Map.of("error", "Request no encontrada", "id_request", idRequest);
+            }
+
+            Object idUser = req.get("id_user");
+            Object idSubject = req.get("id_subject");
+            if (idUser == null || idSubject == null) {
+                return Map.of("error", "La request no tiene id_user o id_subject", "id_request", idRequest);
+            }
+
+            // 2) Crear tutor con esos datos
+            Map<String, Object> tutorPayload = new HashMap<>();
+            tutorPayload.put("id_user", idUser);
+            tutorPayload.put("id_subject", idSubject);
+
+            Map<String, Object> createdTutor = supabaseApiService.createTutor(tutorPayload);
+            if (createdTutor.containsKey("error")) {
+                return Map.of(
+                        "error", "No se pudo crear el tutor",
+                        "detalle", createdTutor.get("error"),
+                        "id_request", idRequest
+                );
+            }
+
+            // 3) Actualizar estado de la request a ACEPTADO
+            Map<String, Object> updateResult = supabaseApiService.updateRequestState(idRequest.toString(), "ACEPTADO");
+            if (updateResult.containsKey("error")) {
+                return Map.of(
+                        "error", "Tutor creado pero falló actualizar estado de request",
+                        "detalle", updateResult.get("error"),
+                        "tutor", createdTutor,
+                        "id_request", idRequest
+                );
+            }
+
+            // 4) Devolver resultado combinado
+            return Map.of(
+                    "status", "ok",
+                    "tutor", createdTutor,
+                    "request_state", updateResult
+            );
+
+        } catch (Exception e) {
+            System.err.println("❌ Error creando tutor desde request: " + e.getMessage());
+            return Map.of("error", e.getMessage(), "id_request", idRequest);
+        }
+    }
 }

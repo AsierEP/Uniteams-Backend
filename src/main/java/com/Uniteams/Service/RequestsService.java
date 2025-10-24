@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
 import org.springframework.stereotype.Service;
 
 @Service
@@ -18,6 +19,42 @@ public class RequestsService {
     // Crear una request mapeando camelCase -> snake_case
     public Map<String, Object> createRequest(Map<String, Object> requestData) {
         Map<String, Object> supabaseData = new HashMap<>();
+
+        // ✅ Validación previa: si el usuario ya es tutor de esta materia o ya tiene una solicitud pendiente para la misma,
+        // no permitir crear la solicitud
+        try {
+            Object idUserObj = requestData.get("idUser");
+            Object idSubjectObj = requestData.get("idSubject");
+            if (idUserObj != null && idSubjectObj != null) {
+                String idUser = idUserObj.toString();
+                Long idSubject;
+                try {
+                    idSubject = Long.parseLong(idSubjectObj.toString());
+                } catch (NumberFormatException nfe) {
+                    return Map.of("error", "idSubject debe ser un número entero válido");
+                }
+
+                boolean alreadyTutor = supabaseApiService.isUserTutorOfSubject(idUser, idSubject);
+                if (alreadyTutor) {
+                    return Map.of(
+                            "error", "El usuario ya es tutor de esta materia y no puede crear otra solicitud",
+                            "idUser", idUser,
+                            "idSubject", idSubject
+                    );
+                }
+
+                boolean hasPending = supabaseApiService.hasPendingRequestForSubject(idUser, idSubject);
+                if (hasPending) {
+                    return Map.of(
+                            "error", "Ya existe una solicitud pendiente para esta materia",
+                            "idUser", idUser,
+                            "idSubject", idSubject
+                    );
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("⚠️ Advertencia en validación de tutor existente: " + e.getMessage());
+        }
 
         // (Tu mapeo está bien)
         if (requestData.containsKey("idRequest")) {
@@ -40,6 +77,15 @@ public class RequestsService {
         }
         if (requestData.containsKey("description")) {
             supabaseData.put("description", requestData.get("description"));
+        }
+        // state (enum en Supabase). Si no viene, por defecto EN_ESPERA
+        if (requestData.containsKey("state") && requestData.get("state") != null) {
+            String s = requestData.get("state").toString().trim();
+            if (!s.isEmpty()) {
+                supabaseData.put("state", s.toUpperCase());
+            }
+        } else {
+            supabaseData.put("state", "EN_ESPERA");
         }
 
         System.out.println("📤 Request mapeada para Supabase: " + supabaseData);
@@ -129,6 +175,39 @@ public class RequestsService {
                     "error", e.getMessage(),
                     "id_request", id
             );
+        }
+    }
+
+    // ✅ NUEVO: Actualizar estado de una request
+    public Map<String, Object> updateRequestState(Long id, String state) {
+        try {
+            if (state == null || state.trim().isEmpty()) {
+                return Map.of("error", "El estado es obligatorio", "id_request", id);
+            }
+            String upper = state.trim().toUpperCase();
+            if (!(upper.equals("ACEPTADO") || upper.equals("DENEGADO") || upper.equals("EN_ESPERA"))) {
+                return Map.of("error", "Estado inválido. Use ACEPTADO, DENEGADO o EN_ESPERA", "id_request", id);
+            }
+
+            return supabaseApiService.updateRequestState(id.toString(), upper);
+        } catch (Exception e) {
+            System.err.println("❌ Error actualizando estado de request: " + e.getMessage());
+            return Map.of("error", e.getMessage(), "id_request", id);
+        }
+    }
+
+    // ✅ NUEVO: Obtener requests por estado
+    public List<Map<String, Object>> getRequestsByState(String state) {
+        try {
+            if (state == null || state.trim().isEmpty()) return new ArrayList<>();
+            String upper = state.trim().toUpperCase();
+            if (!(upper.equals("ACEPTADO") || upper.equals("DENEGADO") || upper.equals("EN_ESPERA"))) {
+                return new ArrayList<>();
+            }
+            return supabaseApiService.getRequestsByState(upper);
+        } catch (Exception e) {
+            System.err.println("❌ Error obteniendo requests por estado: " + e.getMessage());
+            return new ArrayList<>();
         }
     }
 }

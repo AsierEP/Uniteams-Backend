@@ -11,6 +11,7 @@ public class RequestsDTO {
     private Integer grade;           // grade
     private String carreerName;      // carreer_name
     private String description;      // description
+    private String state;            // state (ACEPTADO, DENEGADO, EN_ESPERA)
 
     public Long getIdRequest() { return idRequest; }
     public void setIdRequest(Long idRequest) { this.idRequest = idRequest; }
@@ -32,4 +33,7 @@ public class RequestsDTO {
 
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
+
+    public String getState() { return state; }
+    public void setState(String state) { this.state = state; }
 }

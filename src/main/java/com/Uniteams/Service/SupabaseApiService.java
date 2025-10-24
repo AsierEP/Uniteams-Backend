@@ -1,9 +1,18 @@
 package com.Uniteams.Service;
 
-import org.springframework.http.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
-import java.util.*;
 
 @Service
 public class SupabaseApiService {
@@ -296,8 +305,8 @@ public class SupabaseApiService {
     }
     public List<Map<String, Object>> getRequests() {
         try {
-            // ASUME que tu tabla en Supabase se llama 'requests'
-            String url = supabaseUrl + "/requests?select=*";
+            // Selección explícita y orden descendente por id_request
+            String url = supabaseUrl + "/requests?select=id_request,id_user,id_subject,grade,carreer_name,description,state,created_at&order=id_request.desc";
             HttpEntity<String> entity = new HttpEntity<>(createHeaders());
 
             ResponseEntity<Map[]> response = restTemplate.exchange(
@@ -310,6 +319,27 @@ public class SupabaseApiService {
             System.err.println("❌ Error obteniendo requests: " + e.getMessage());
             e.printStackTrace();
             return new ArrayList<>();
+        }
+    }
+
+    // ✅ NUEVO: Obtener una request por id_request
+    public Map<String, Object> getRequestById(String requestId) {
+        try {
+            String url = supabaseUrl + "/requests?id_request=eq." + requestId + "&select=id_request,id_user,id_subject,grade,carreer_name,description,state,created_at";
+            HttpEntity<String> entity = new HttpEntity<>(createHeaders());
+
+            ResponseEntity<Map[]> response = restTemplate.exchange(
+                    url, HttpMethod.GET, entity, Map[].class);
+
+            Map[] rows = response.getBody();
+            if (rows != null && rows.length > 0) {
+                return rows[0];
+            }
+            return null;
+        } catch (Exception e) {
+            System.err.println("❌ Error obteniendo request por id_request: " + e.getMessage());
+            e.printStackTrace();
+            return null;
         }
     }
 
@@ -355,8 +385,8 @@ public class SupabaseApiService {
     }
     public boolean deleteRequestById(String requestId) {
         try {
-            // ASUME que tu tabla en Supabase se llama 'requests'
-            String url = supabaseUrl + "/requests?id=eq." + requestId;
+            // Filtrar por columna correcta: id_request
+            String url = supabaseUrl + "/requests?id_request=eq." + requestId;
 
             HttpHeaders headers = createHeaders();
             // Para DELETE, 'minimal' es más eficiente que 'representation'
@@ -364,7 +394,7 @@ public class SupabaseApiService {
 
             HttpEntity<String> entity = new HttpEntity<>(headers);
 
-            System.out.println("🚀 Eliminando request de Supabase: " + requestId);
+            System.out.println("🚀 Eliminando request de Supabase (id_request): " + requestId);
 
             // Ejecutamos la llamada DELETE
             ResponseEntity<String> response = restTemplate.exchange(
@@ -391,7 +421,7 @@ public class SupabaseApiService {
     public List<Map<String, Object>> getRequestsByUserId(String userId) {
         try {
             // Filtra en la base de datos con ?id_user=eq.USER_ID
-            String url = supabaseUrl + "/requests?id_user=eq." + userId + "&select=*";
+            String url = supabaseUrl + "/requests?id_user=eq." + userId + "&select=id_request,id_user,id_subject,grade,carreer_name,description,state,created_at&order=id_request.desc";
             HttpEntity<String> entity = new HttpEntity<>(createHeaders());
 
             ResponseEntity<Map[]> response = restTemplate.exchange(
@@ -409,7 +439,7 @@ public class SupabaseApiService {
     public List<Map<String, Object>> getRequestsBySubjectId(Long idSubject) {
         try {
             // Filtra en la base de datos con ?id_subject=eq.SUBJECT_ID
-            String url = supabaseUrl + "/requests?id_subject=eq." + idSubject + "&select=*";
+            String url = supabaseUrl + "/requests?id_subject=eq." + idSubject + "&select=id_request,id_user,id_subject,grade,carreer_name,description,state,created_at&order=id_request.desc";
             HttpEntity<String> entity = new HttpEntity<>(createHeaders());
 
             ResponseEntity<Map[]> response = restTemplate.exchange(
@@ -420,6 +450,57 @@ public class SupabaseApiService {
             System.err.println("❌ Error obteniendo requests por materia: " + e.getMessage());
             e.printStackTrace();
             return new ArrayList<>();
+        }
+    }
+
+    // ✅ NUEVO: Obtener requests por estado
+    public List<Map<String, Object>> getRequestsByState(String state) {
+        try {
+            String url = supabaseUrl + "/requests?state=eq." + state + "&select=id_request,id_user,id_subject,grade,carreer_name,description,state,created_at&order=id_request.desc";
+            HttpEntity<String> entity = new HttpEntity<>(createHeaders());
+
+            ResponseEntity<Map[]> response = restTemplate.exchange(
+                    url, HttpMethod.GET, entity, Map[].class);
+
+            return Arrays.asList(response.getBody());
+        } catch (Exception e) {
+            System.err.println("❌ Error obteniendo requests por estado: " + e.getMessage());
+            e.printStackTrace();
+            return new ArrayList<>();
+        }
+    }
+    
+    // ✅ NUEVO: Actualizar estado de una request por id
+    public Map<String, Object> updateRequestState(String requestId, String state) {
+        try {
+            // Filtrar por columna correcta: id_request
+            String url = supabaseUrl + "/requests?id_request=eq." + requestId;
+
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("state", state);
+
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, createHeaders());
+            ResponseEntity<String> response = restTemplate.exchange(
+                    url, HttpMethod.PATCH, entity, String.class);
+
+        return Map.of(
+            "status", "updated",
+            "id_request", requestId,
+            "state", state
+        );
+        } catch (org.springframework.web.client.HttpClientErrorException e) {
+            System.err.println("❌ Error REAL de Supabase al actualizar estado: " + e.getResponseBodyAsString());
+        return Map.of(
+            "error", "Error de Supabase: " + e.getResponseBodyAsString(),
+            "id_request", requestId
+        );
+        } catch (Exception e) {
+            System.err.println("❌ Error actualizando estado de request: " + e.getMessage());
+            e.printStackTrace();
+        return Map.of(
+            "error", e.getMessage(),
+            "id_request", requestId
+        );
         }
     }
     public List<Map<String, Object>> getTutors() {
@@ -438,6 +519,51 @@ public class SupabaseApiService {
             System.err.println("❌ Error obteniendo tutores: " + e.getMessage());
             e.printStackTrace();
             return new ArrayList<>();
+        }
+    }
+    
+    // ✅ NUEVO: Validar si un usuario ya es tutor de una materia específica
+    public boolean isUserTutorOfSubject(String userId, Long idSubject) {
+        try {
+            if (userId == null || userId.isBlank() || idSubject == null) return false;
+
+            String url = supabaseUrl + "/tutors?id_user=eq." + userId + "&id_subject=eq." + idSubject + "&select=id";
+            HttpEntity<String> entity = new HttpEntity<>(createHeaders());
+
+            ResponseEntity<Map[]> response = restTemplate.exchange(
+                    url, HttpMethod.GET, entity, Map[].class);
+
+            Map[] rows = response.getBody();
+            return rows != null && rows.length > 0;
+        } catch (Exception e) {
+            System.err.println("❌ Error comprobando si usuario ya es tutor: " + e.getMessage());
+            e.printStackTrace();
+            // En caso de error, no bloquear por defecto
+            return false;
+        }
+    }
+
+    // ✅ NUEVO: Verificar si ya existe una solicitud pendiente (EN_ESPERA) para user+subject
+    public boolean hasPendingRequestForSubject(String userId, Long idSubject) {
+        try {
+            if (userId == null || userId.isBlank() || idSubject == null) return false;
+
+            String url = supabaseUrl
+                    + "/requests?id_user=eq." + userId
+                    + "&id_subject=eq." + idSubject
+                    + "&state=eq.EN_ESPERA&select=id_request&limit=1";
+
+            HttpEntity<String> entity = new HttpEntity<>(createHeaders());
+            ResponseEntity<Map[]> response = restTemplate.exchange(
+                    url, HttpMethod.GET, entity, Map[].class);
+
+            Map[] rows = response.getBody();
+            return rows != null && rows.length > 0;
+        } catch (Exception e) {
+            System.err.println("❌ Error comprobando solicitud pendiente existente: " + e.getMessage());
+            e.printStackTrace();
+            // En caso de error, no bloquear por defecto
+            return false;
         }
     }
     public Map<String, Object> createTutor(Map<String, Object> tutorData) {

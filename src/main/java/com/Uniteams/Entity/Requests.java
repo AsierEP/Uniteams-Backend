@@ -12,9 +12,15 @@ public class Requests {
     private Integer grade;           // grade (int8 -> usamos Integer)
     private String carreerName;      // carreer_name (varchar)
     private String description;      // description (text)
+    private State state;             // state (enum)
+
+    public enum State {
+        ACEPTADO, DENEGADO, EN_ESPERA
+    }
 
     public Requests() {
         this.createdAt = LocalDateTime.now();
+        this.state = State.EN_ESPERA;
     }
 
     public Long getIdRequest() { return idRequest; }
@@ -37,4 +43,7 @@ public class Requests {
 
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
+
+    public State getState() { return state; }
+    public void setState(State state) { this.state = state; }
 }

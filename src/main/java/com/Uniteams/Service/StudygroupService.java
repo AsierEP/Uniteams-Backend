@@ -89,6 +89,21 @@ public class StudygroupService {
         }
     }
 
+    // ✅ NUEVO: Grupos sin tutor asignado (públicos)
+    public List<Map<String, Object>> getGroupsWithoutTutor() {
+        try {
+            // Consultar directamente a Supabase para traer solo los que no tienen tutor
+            List<Map<String, Object>> rows = supabaseApiService.getStudyGroupsWithoutTutor();
+            // Opcional: filtrar privados por si la tabla contiene privados también
+            return rows.stream()
+                    .filter(row -> !Boolean.TRUE.equals(row.get("is_private")))
+                    .toList();
+        } catch (Exception e) {
+            System.err.println("❌ Error obteniendo grupos sin tutor: " + e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+
     // Buscar grupos públicos
     public List<Map<String, Object>> searchPublicGroups(String searchTerm) {
         try {
@@ -165,6 +180,91 @@ public class StudygroupService {
         }
     }
 
+    // ✅ NUEVO: Postularse como tutor si el grupo no tiene tutor aún
+    public boolean applyAsTutor(String code, String userId) {
+        try {
+            Map<String, Object> group = getStudyGroupByCode(code);
+            if (group == null) return false;
+
+            // Si ya tiene tutor asignado, no permitir (validación por tutor_id)
+            if (group.get("tutor_id") != null) return false;
+
+            // Obtener nombre para mostrar como tutor (si existe en profile)
+            String tutorDisplayName = userId;
+            Map<String, Object> profile = supabaseApiService.getUserProfile(userId);
+            if (profile != null) {
+                Object fullName = profile.get("full_name");
+                if (fullName == null) fullName = profile.get("name");
+                if (fullName != null) tutorDisplayName = fullName.toString();
+            }
+
+            Object groupIdObj = group.get("id");
+            if (groupIdObj == null) return false;
+            String groupId = groupIdObj.toString();
+
+            // Resolver tutor_id (int8) desde tabla tutors para este usuario
+            Long tutorId = supabaseApiService.getTutorIdByUser(userId);
+            if (tutorId == null) {
+                // Intentar crear un registro básico en tutors con solo id_user
+                Map<String, Object> tutorPayload = new HashMap<>();
+                tutorPayload.put("id_user", userId);
+                Map<String, Object> createdTutor = supabaseApiService.createTutor(tutorPayload);
+                Object newId = createdTutor != null ? createdTutor.get("id") : null;
+                if (newId == null) return false; // no se pudo crear el tutor
+                try { tutorId = Long.parseLong(newId.toString()); } catch (NumberFormatException nfe) { return false; }
+            }
+
+            Map<String, Object> update = new HashMap<>();
+            // Persistir el ID del tutor (fuente de verdad, int8)
+            update.put("tutor_id", tutorId);
+            // Opcional: guardar nombre legible para UI si la columna existe
+            update.put("tutor_name", tutorDisplayName);
+
+            return supabaseApiService.updateStudyGroup(groupId, update);
+        } catch (Exception e) {
+            System.err.println("❌ Error postulándose como tutor: " + e.getMessage());
+            return false;
+        }
+    }
+
+    // ✅ NUEVO: Retirar tutor de un grupo (solo el tutor asignado puede hacerlo)
+    public boolean removeTutorFromGroup(String code, String userId) {
+        try {
+            Map<String, Object> group = getStudyGroupByCode(code);
+            if (group == null) return false;
+
+            // Verificar que el usuario actual es el tutor asignado
+            Object tutorIdObj = group.get("tutor_id");
+            if (tutorIdObj == null) return false; // no hay tutor asignado
+
+            Long currentTutorId = supabaseApiService.getTutorIdByUser(userId);
+            if (currentTutorId == null) return false; // el usuario no es tutor
+
+            Long groupTutorId;
+            try {
+                groupTutorId = Long.parseLong(tutorIdObj.toString());
+            } catch (NumberFormatException e) {
+                return false;
+            }
+
+            if (!currentTutorId.equals(groupTutorId)) return false; // no es el tutor asignado
+
+            // Retirar el tutor
+            Object groupIdObj = group.get("id");
+            if (groupIdObj == null) return false;
+            String groupId = groupIdObj.toString();
+
+            Map<String, Object> update = new HashMap<>();
+            update.put("tutor_id", null);
+            update.put("tutor_name", null);
+
+            return supabaseApiService.updateStudyGroup(groupId, update);
+        } catch (Exception e) {
+            System.err.println("❌ Error removiendo tutor del grupo: " + e.getMessage());
+            return false;
+        }
+    }
+
     // ✅ NUEVO: Actualizar participantes
     public Map<String, Object> updateParticipants(String code, int newParticipantCount) {
         try {
@@ -197,6 +297,53 @@ public class StudygroupService {
                     .toList();
         } catch (Exception e) {
             System.err.println("❌ Error obteniendo materias disponibles: " + e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+
+    // ✅ NUEVO: Grupos sin tutor elegibles para un usuario (según materias aceptadas)
+    public List<Map<String, Object>> getGroupsWithoutTutorEligibleForUser(String userId) {
+        try {
+            // 1) Obtener IDs de materias donde el usuario es tutor
+            List<Long> subjectIds = supabaseApiService.getTutorSubjectIdsByUser(userId);
+            if (subjectIds == null || subjectIds.isEmpty()) {
+                return new ArrayList<>();
+            }
+
+            // 2) Mapear id_subject -> name desde subjects
+            List<Map<String, Object>> allSubjects = supabaseApiService.getSubjects();
+            Map<Long, String> idToName = new java.util.HashMap<>();
+            for (Map<String, Object> s : allSubjects) {
+                Object idObj = s.get("id_subject");
+                Object nameObj = s.get("name");
+                if (idObj != null && nameObj != null) {
+                    try {
+                        long sid = Long.parseLong(idObj.toString());
+                        idToName.put(sid, nameObj.toString());
+                    } catch (NumberFormatException ignore) { }
+                }
+            }
+
+            // 3) Construir set de nombres permitidos
+            java.util.Set<String> allowedNames = new java.util.HashSet<>();
+            for (Long sid : subjectIds) {
+                String name = idToName.get(sid);
+                if (name != null) allowedNames.add(name.toLowerCase());
+            }
+            if (allowedNames.isEmpty()) return new ArrayList<>();
+
+            // 4) Traer grupos sin tutor y filtrar por subject name
+            List<Map<String, Object>> allWithoutTutor = getGroupsWithoutTutor();
+            List<Map<String, Object>> filtered = new ArrayList<>();
+            for (Map<String, Object> g : allWithoutTutor) {
+                Object subj = g.get("subject");
+                if (subj != null && allowedNames.contains(subj.toString().toLowerCase())) {
+                    filtered.add(g);
+                }
+            }
+            return filtered;
+        } catch (Exception e) {
+            System.err.println("❌ Error obteniendo grupos elegibles: " + e.getMessage());
             return new ArrayList<>();
         }
     }
@@ -262,6 +409,28 @@ public class StudygroupService {
         } catch (Exception e) {
             System.err.println("❌ Error uniéndose al grupo: " + e.getMessage());
             return Map.of("error", e.getMessage());
+        }
+    }
+
+    // ✅ NUEVO: Actualizar un grupo por ID numérico (helper para controladores)
+    public boolean updateStudyGroupById(Long groupId, Map<String, Object> update) {
+        if (groupId == null) return false;
+        try {
+            return supabaseApiService.updateStudyGroup(String.valueOf(groupId), update);
+        } catch (Exception e) {
+            System.err.println("❌ Error en updateStudyGroupById: " + e.getMessage());
+            return false;
+        }
+    }
+
+    // ✅ NUEVO: Obtener grupo por ID numérico
+    public Map<String, Object> getStudyGroupByIdNum(Long groupId) {
+        try {
+            if (groupId == null) return null;
+            return supabaseApiService.getStudyGroupByIdNum(groupId);
+        } catch (Exception e) {
+            System.err.println("❌ Error obteniendo grupo por ID numérico: " + e.getMessage());
+            return null;
         }
     }
 

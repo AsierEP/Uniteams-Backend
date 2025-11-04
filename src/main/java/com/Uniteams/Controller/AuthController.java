@@ -1,10 +1,69 @@
 package com.Uniteams.Controller;
 
+import com.Uniteams.Service.SupabaseApiService;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
+
+    private final SupabaseApiService supabaseApiService;
+
+    public AuthController(SupabaseApiService supabaseApiService) {
+        this.supabaseApiService = supabaseApiService;
+    }
+
+    // ✅ NUEVO: Login que valida si el usuario es tutor
+    @PostMapping("/login")
+    public ResponseEntity<?> login(@RequestHeader("Authorization") String authHeader) {
+        try {
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Token inválido - formato incorrecto"));
+            }
+
+            String token = authHeader.substring(7);
+            String userId = extractUserIdFromToken(token);
+
+            if (userId == null) {
+                return ResponseEntity.badRequest().body(Map.of("error", "No se pudo extraer el ID de usuario del token"));
+            }
+
+            // Verificar si el usuario es tutor
+            boolean isTutor = supabaseApiService.isUserTutor(userId);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("userId", userId);
+            response.put("isTutor", isTutor);
+            response.put("message", "Login exitoso");
+
+            System.out.println("✅ Login exitoso - Usuario: " + userId + ", Es tutor: " + isTutor);
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            System.err.println("❌ Error en login: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(Map.of("error", "Error procesando el login"));
+        }
+    }
+
+    private String extractUserIdFromToken(String token) {
+        try {
+            String[] parts = token.split("\\.");
+            if (parts.length != 3) return null;
+
+            String payloadJson = new String(java.util.Base64.getUrlDecoder().decode(parts[1]));
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            Map<String, Object> payload = mapper.readValue(payloadJson, Map.class);
+            
+            return (String) payload.get("sub");
+        } catch (Exception e) {
+            System.err.println("❌ Error extrayendo userId del token: " + e.getMessage());
+            return null;
+        }
+    }
 
     @PostMapping("/validate")
     public String validateToken(@RequestHeader("Authorization") String authHeader) {

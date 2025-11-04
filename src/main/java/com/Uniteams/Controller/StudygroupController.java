@@ -50,6 +50,34 @@ public class StudygroupController {
         }
     }
 
+    // ✅ NUEVO: Grupos sin tutor asignado (públicos)
+    @GetMapping("/without-tutor")
+    public ResponseEntity<List<Map<String, Object>>> getGroupsWithoutTutor(
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        try {
+            // Si necesitas validar token/rol, puedes reutilizar validateTokenAndGetUserId(authHeader)
+            List<Map<String, Object>> list = studygroupService.getGroupsWithoutTutor();
+            return ResponseEntity.ok(list);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    // ✅ NUEVO: Grupos sin tutor elegibles para el tutor autenticado (según materias aceptadas)
+    @GetMapping("/without-tutor/eligible")
+    public ResponseEntity<?> getEligibleGroupsWithoutTutor(
+            @RequestHeader("Authorization") String authHeader) {
+        try {
+            String userId = validateTokenAndGetUserId(authHeader);
+            List<Map<String, Object>> list = studygroupService.getGroupsWithoutTutorEligibleForUser(userId);
+            return ResponseEntity.ok(list);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(401).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     // Crear nuevo grupo de estudio
     @PostMapping
     public ResponseEntity<?> createStudyGroup(
@@ -143,6 +171,44 @@ public class StudygroupController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body(Map.of("error", "Error al salir del grupo: " + e.getMessage()));
+        }
+    }
+
+    // ✅ NUEVO: Postulación como tutor para un grupo (si no tiene tutor aún)
+    @PostMapping("/{code}/apply-tutor")
+    public ResponseEntity<Map<String, Object>> applyAsTutor(
+            @PathVariable String code,
+            @RequestHeader("Authorization") String authHeader) {
+        try {
+            String userId = validateTokenAndGetUserId(authHeader);
+            boolean ok = studygroupService.applyAsTutor(code, userId);
+            if (!ok) {
+                return ResponseEntity.status(409).body(Map.of("error", "Ya hay un tutor asignado o el grupo no existe"));
+            }
+            return ResponseEntity.ok(Map.of("success", true, "message", "Te has postulado correctamente"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // ✅ NUEVO: Retirar tutor de un grupo (solo el tutor asignado puede hacerlo)
+    @PostMapping("/{code}/remove-tutor")
+    public ResponseEntity<Map<String, Object>> removeTutor(
+            @PathVariable String code,
+            @RequestHeader("Authorization") String authHeader) {
+        try {
+            String userId = validateTokenAndGetUserId(authHeader);
+            boolean ok = studygroupService.removeTutorFromGroup(code, userId);
+            if (!ok) {
+                return ResponseEntity.status(403).body(Map.of("error", "No eres el tutor de este grupo o el grupo no existe"));
+            }
+            return ResponseEntity.ok(Map.of("success", true, "message", "Tutor removido exitosamente"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
         }
     }
 

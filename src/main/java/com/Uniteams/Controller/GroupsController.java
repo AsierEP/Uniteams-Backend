@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -27,6 +28,50 @@ public class GroupsController {
         this.studygroupService = studygroupService;
         this.supabaseApiService = supabaseApiService;
     }
+
+    // ✅ Usuario autenticado deja el grupo
+    @PostMapping("/{groupId}/leave")
+    public ResponseEntity<?> leaveGroup(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable Long groupId
+    ) {
+        try {
+            String userId = validateTokenAndGetUserId(authHeader);
+
+            Map<String, Object> profile = supabaseApiService.getUserProfile(userId);
+            if (profile == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Perfil no encontrado"));
+            }
+
+            Object studyGroupsObj = profile.get("study_groups");
+            java.util.List<Object> studyGroups = new java.util.ArrayList<>();
+            if (studyGroupsObj instanceof java.util.List) {
+                studyGroups.addAll((java.util.List<?>) studyGroupsObj);
+            }
+
+            String gidStr = groupId.toString();
+            boolean contained = studyGroups.removeIf(g -> gidStr.equals(String.valueOf(g)));
+            if (!contained) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "El usuario no pertenece a ese grupo"));
+            }
+
+            Map<String, Object> update = new HashMap<>();
+            update.put("study_groups", studyGroups);
+
+            boolean ok = supabaseApiService.updateUserProfile(userId, update);
+            if (ok) return ResponseEntity.ok(Map.of("success", true));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "No se pudo actualizar el perfil"));
+
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // ✅ DELETE para eliminar miembro (id_user + id_group) — solo el propio usuario o el coordinador del grupo
+    
 
     // ✅ Obtener grupo por ID
     @GetMapping("/{groupId}")

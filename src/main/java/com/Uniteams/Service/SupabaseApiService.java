@@ -890,4 +890,67 @@ public class SupabaseApiService {
             return false;
         }
     }
+
+    // ===== TUTOR FEEDBACK METHODS =====
+
+    // Crear feedback de tutor
+    public Map<String, Object> createTutorFeedback(Map<String, Object> feedbackData) {
+        try {
+            String url = supabaseUrl + "/feedback_tutor?select=*";
+            HttpHeaders headers = createHeaders();
+            headers.set("Prefer", "return=representation,resolution=merge-duplicates");
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(feedbackData, headers);
+            ResponseEntity<Map[]> response = restTemplate.exchange(url, HttpMethod.POST, entity, Map[].class);
+            if (response.getBody() != null && response.getBody().length > 0) {
+                return response.getBody()[0];
+            }
+            return Map.of("error", "Supabase devolvió OK pero sin cuerpo de respuesta.");
+        } catch (org.springframework.web.client.HttpClientErrorException e) {
+            System.err.println("❌ Error REAL de Supabase al crear feedback_tutor: " + e.getResponseBodyAsString());
+            return Map.of("error", "Error de Supabase: " + e.getResponseBodyAsString());
+        } catch (Exception e) {
+            System.err.println("❌ Error creando feedback_tutor: " + e.getMessage());
+            e.printStackTrace();
+            return Map.of("error", e.getMessage());
+        }
+    }
+
+    // Obtener feedback por tutor_id
+    public List<Map<String, Object>> getTutorFeedbackByTutorId(Long tutorId) {
+        try {
+            if (tutorId == null) return new ArrayList<>();
+            String url = supabaseUrl + "/feedback_tutor?tutor_id=eq." + tutorId + "&select=*&order=created_at.desc";
+            HttpEntity<String> entity = new HttpEntity<>(createHeaders());
+            ResponseEntity<Map[]> response = restTemplate.exchange(url, HttpMethod.GET, entity, Map[].class);
+            Map[] rows = response.getBody();
+            return rows != null ? Arrays.asList(rows) : new ArrayList<>();
+        } catch (Exception e) {
+            System.err.println("❌ Error obteniendo feedback de tutor: " + e.getMessage());
+            e.printStackTrace();
+            return new ArrayList<>();
+        }
+    }
+
+    // Resumen (promedio estrellas y total) por tutor
+    public Map<String, Object> getTutorFeedbackSummary(Long tutorId) {
+        List<Map<String, Object>> feedbacks = getTutorFeedbackByTutorId(tutorId);
+        int count = 0;
+        int sum = 0;
+        for (Map<String, Object> f : feedbacks) {
+            Object starsObj = f.get("stars");
+            if (starsObj != null) {
+                try {
+                    int val = Integer.parseInt(starsObj.toString());
+                    sum += val;
+                    count++;
+                } catch (NumberFormatException ignore) {}
+            }
+        }
+        double average = count == 0 ? 0.0 : (double) sum / count;
+        return Map.of(
+                "tutor_id", tutorId,
+                "count", count,
+                "average_stars", average
+        );
+    }
 }

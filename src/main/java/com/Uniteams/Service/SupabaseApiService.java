@@ -872,4 +872,22 @@ public class SupabaseApiService {
             return false;
         }
     }
+    // Verificar si usuario es admin (nuevo campo bool is_admin en profiles)
+    public boolean isUserAdmin(String userId) {
+        try {
+            if (userId == null || userId.isBlank()) return false;
+            Map<String, Object> profile = getUserProfile(userId);
+            if (profile == null) return false;
+            Object flag = profile.get("is_admin");
+            if (flag instanceof Boolean) return (Boolean) flag;
+            if (flag instanceof String) {
+                // Manejar casos donde Supabase devuelve "true"/"false"
+                return Boolean.parseBoolean((String) flag);
+            }
+            return false;
+        } catch (Exception e) {
+            System.err.println("❌ Error verificando admin (profiles.is_admin): " + e.getMessage());
+            return false;
+        }
+    }
 }
